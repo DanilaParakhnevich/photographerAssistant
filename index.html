@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="pl" ng-app="ui">
+
+<head>
+    <meta charset="utf-8">
+    <title>DOF simulator - Camera depth of field calculator with visual background blur and bokeh simulation.</title>
+    <meta name="description" content="Calculates camera depth of field and background blur and simulates it on a photo for any lens, camera and distance combination with different types of lens blur (bokeh)." />
+
+
+    <meta name="viewport" content="width=device-width">
+
+
+    <meta name="og:title" content="DOF simulator - Camera depth of field calculator with visual background blur and bokeh simulation.">
+    <meta name="og:type" content="website">
+    <meta name="og:image" content="img/dofsimulator.png?v=20170326">
+    <meta name="og:url" content="https://dofsimulator.net/en/">
+    <meta name="og:description" content="Calculates camera depth of field and background blur and simulates it on a photo for any lens, camera and distance combination with different types of lens blur (bokeh).">
+
+    <link rel="alternate" hreflang="x-default" href="https://dofsimulator.net/" />
+    <link rel="alternate" hreflang="en" href="https://dofsimulator.net/en/" />
+    <link rel="alternate" hreflang="pl" href="https://dofsimulator.net/pl/" />
+
+    <link rel="shortcut icon" href="favicon.ico" />
+
+    <link rel="stylesheet" href="styles/fontello.css?v=20180907" />
+    <link rel="stylesheet" href="styles/normalize.css?v=20170326" />
+    <link rel="stylesheet" href="styles/bootstrap-tour-standalone.css?v=20170326" />
+
+    <link rel="stylesheet" href="styles/style.css?v=20200320" />
+
+
+
+
+    <script type="text/javascript">
+        if (window.top != window.self) {
+            window.top.location.replace(document.location);
+        }
+    </script>
+    <script type="application/ld+json">
+        {
+            "@context": "http://schema.org",
+            "@type": "Organization",
+            "name": "DOF simulator",
+            "url": "https://dofsimulator.net/en/",
+            "logo": "https://dofsimulator.net/en/img/logo.png",
+            "sameAs": [
+                "https://www.facebook.com/dofsimulator/",
+                "https://twitter.com/dofsimulator"
+            ]
+        }
+    </script>
+    <script type="application/ld+json">
+        {
+            "@context": "http://schema.org",
+            "@type": "WebApplication",
+            "name": "DOF simulator",
+            "applicationCategory": "Multimedia",
+            "browserRequirements": "HTML5, CSS3, JavaScript",
+            "offers": {
+                "@type": "Offer",
+                "price": "0.0",
+                "priceCurrency": "PLN"
+            }
+        }
+    </script>
+</head>
+
+<body ng-controller="MainCtrl as ctrl" ng-style="{'font-size':fontSize}" ng-class="{vertical:vertical}">
+    <div id="fourierBackdrop" ng-show="fourierBlurProgress < 100" mb-cloak=""></div>
+    <noscript>
+			<span class="messageBar error">
+				This page requires JavaScript to run.<br/>You can <a href="http://www.enable-javascript.com/en/" target="_blank">enable it in your browser settings.</a>
+			</span>
+			<style type="text/css">
+				main, #dialogBackdrop, tooltip, #cookie > span, #dialogWindow > header > i, .noscript-hide{
+					display: none !important;
+				}
+				#dialog{
+					display: block !important;
+				}
+				#dialogWindow{
+					width: 640px;
+					position: static;
+					margin: 0 auto;
+				}
+				#dialogWindow > span{
+					max-height: 100%;
+				}
+				
+				@media (max-width: 700px){
+					#dialogWindow{
+						width: 93.5%;
+						min-width: 320px;
+					}
+				}
+
+			</style>
+		</noscript>
+
+
+
+    <span class="messageBar warning" ng-style="{width: contentWidth}" mb-cloak="" ng-show="newVersion">
+			The application has been updated since your last visit. 
+			Go to <a ng-click="ctrl.showDialog('changelog');newVersion=false;">the changelog</a> to learn more.
+			<i ng-click="newVersion=false" class="icon-cancel-circled"></i>
+		</span>
+
+    <main ng-style="{width:contentWidth}">
+
+        <style ng-if="false">
+            @media (max-width: 960px) {
+                nav>table {
+                    width: 100% !important;
+                    margin: 0 !important;
+                }
+                nav>table:nth-child(1) {
+                    margin: 0 0 5px 0 !important;
+                }
+            }
+
+            @media (max-width: 640px) {
+                body {
+                    font-size: 12px;
+                }
+            }
+        </style>
+
+        <ng-include src="'main-nav'" ng-if="!vertical"></ng-include>
+
+        <header>
+            <img id="headerLogo" src="img/logo.svg" />
+
+            <div id="headerButtons">
+                <div class="headerButton language" ng-show="!vertical">
+                    <a ng-click="ctrl.chooseLanguage('pl')" href="#" target="_self"><img src="img/flag-pl.png"/></a>
+                    <a ng-click="ctrl.chooseLanguage('en')" href="#" target="_self"><img src="img/flag-en.png"/></a>
+                </div>
+
+                <div class="headerButton menu" ng-show="vertical" mb-cloak ng-click="ctrl.showMenu = !ctrl.showMenu">
+                    <i class="icon-menu"></i>
+                </div>
+            </div>
+
+        </header>
+
+        <ng-include src="'main-nav'" ng-if="vertical && ctrl.showMenu"></ng-include>
+
+        <div id="mainError" class="messageBar error" style="display:none">
+
+            An error occured during load. Please try refreshing the page.
+
+
+            <span id="mainErrorDetails" class="errorDetails"></span>
+        </div>
+
+
+        <mb-tooltip show-when="helpActive" mb-cloak="" timeout="3000">
+            <span class="info">Hover over any element with orange<br/>
+				border to see the help.</span>
+        </mb-tooltip>
+
+        <div id="loading" ng-show="false">
+            <div class="spinner">
+                <div class="bounce1"></div>
+                <div class="bounce2"></div>
+                <div class="bounce3"></div>
+            </div>
+            <br/> Loading&nbsp;in&nbsp;progress...
+        </div>
+
+        <div id="panelLeft" ng-style="{width: configWidth}" mb-cloak="" mb-sticky-scroll="#simulation" mb-sticky-scroll-disabled="vertical">
+            <section id="config">
+                <header>
+                    <strong mb-show-hide="show.config" enabled="vertical">
+				 			<i class="icon-sliders"></i>&nbsp;Configuration
+			 			</strong>
+                    <button ng-click="ctrl.resetConfig()" mb-help="Reverts values of all the parameters to their defaults."><i class="icon-arrows-cw"></i>Reset</button>
+                    <span ng-if="vertical && !show.config" ng-switch="formatType">
+			 				<span ng-switch-when="sensor">{{format}}</span>
+                    <span ng-switch-when="camera">{{cameraMake.make}} {{cameraModel.model}}</span> / {{f | number:0}}mm / f/{{a | number:1}}
+                    <span ng-show="conv.key !== '--'">/ {{conv.key}}</span>
+                    </span>
+                </header>
+                <div ng-hide="vertical && !show.config">
+                    <table class="layoutBox" id="interface">
+                        <colgroup>
+                            <col style="width:3em" />
+                            <col style="width:40%" />
+                            <col style="width:25%" />
+                            <col style="width:25%" />
+                            <col style="width:10%" />
+                        </colgroup>
+                        <tr mb-help="Basic mode uses a simplified user interface. All features are available in the advanced mode.">
+                            <td rowspan="2">
+                                <i class="icon-wrench icon-2x"></i>
+                            </td>
+                            <td>Interface:</td>
+                            <td>
+                                <input id="interfaceBasic" type="radio" ng-model="advanced" ng-value="false" ng-change="ctrl.changeMode()">
+                                <label for="interfaceBasic">Basic</label>
+                            </td>
+                            <td>
+                                <input id="interfaceAdvanced" type="radio" ng-model="advanced" ng-value="true" ng-change="ctrl.changeMode()">
+                                <label for="interfaceAdvanced">Advanced</label>
+                            </td>
+                            <td>&nbsp;</td>
+                        </tr>
+                        <tr mb-help="Units system used for distance values: metric (meters, centimeters) or imperial (feet, inches, yards).">
+                            <td>Distance units:</td>
+                            <td>
+                                <input type="radio" ng-model="units" id="unitsMetric" value="metric" /><label for="unitsMetric">Metric</label>
+                            </td>
+                            <td>
+                                <input type="radio" ng-model="units" id="unitsImperial" value="imperial" /><label for="unitsImperial">Imperial</label>
+                            </td>
+                            <td>&nbsp;</td>
+                        </tr>
+                    </table>
+
+                    <mb-infotip infotip-id="advanced" infotip-active="!advanced">
+                        Activate the advanced interface to use all features of the application.
+                    </mb-infotip>
+
+                    <table class="layoutBox" id="apperance">
+                        <colgroup>
+                            <col style="width:3em" />
+                            <col style="width:35%" />
+                            <col style="width:35%" />
+                            <col style="width:35%" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th colspan="4">Appearance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr mb-help="Simulation appearance: model, background and image orientation.">
+                                <td><i class="icon-eye icon-2x"></i></td>
+                                <td>Model:
+                                    <i class="icon-th pull-right" ng-click="ctrl.showDialog('chooseModel')"></i>
+                                    <mb-select ng-model="model" mb-help="Model height is given in the parentheses." select-items="modelsList" item-label="ctrl.printModel(item)" track-by="item.key" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeModel()"></mb-select>
+                                </td>
+                                <td>Background:
+                                    <i class="icon-th pull-right" ng-click="ctrl.showDialog('chooseBackground')"></i>
+                                    <mb-select ng-model="background" select-items="backgroundsList" item-label="item.name" track-by="item.key" ng-disabled="loadedBkg.count < 4 || fourierBlurProgress < 100" ng-change="ctrl.changeBackground()"></mb-select>
+                                </td>
+                                <td>Orientation:<br/>
+                                    <input type="radio" ng-model="orientation" id="orientationPortrait" value="portrait" ng-change="ctrl.changeOrientation()" />
+                                    <label for="orientationPortrait" style="width:45%;">Portrait</label>
+                                    <input type="radio" ng-model="orientation" id="orientationLandscape" value="landscape" ng-change="ctrl.changeOrientation()" />
+                                    <label for="orientationLandscape">Landscape</label>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="layoutBox" id="camera">
+                        <colgroup>
+                            <col style="width:3em" />
+                            <col style="width:20%" />
+                            <col style="width:30%" />
+                            <col style="width:70%" />
+                            <col style="width:7.5em;" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th colspan="5">Camera</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr mb-help="Sensor size can be defined by choosing a common type or a camera model.">
+                                <td colspan="3">
+                                    <input id="formatSensorRadio" type="radio" ng-model="formatType" value="sensor" ng-change="ctrl.changeFormatType()" />
+                                    <label for="formatSensorRadio">Sensor size</label>
+                                </td>
+                                <td>
+                                    <input id="formatCameraRadio" type="radio" ng-model="formatType" value="camera" ng-change="ctrl.changeFormatType()" />
+                                    <label for="formatCameraRadio">Camera model</label>
+                                </td>
+                                <td>
+                                    <span ng-show="advanced && sensor.ratio < 1.75" mb-help="Change image ratio to typical HD video.">
+											<input id="video16_9" type="checkbox" ng-model="video16_9" ng-change="ctrl.changeVideo16_9()" />
+											<label for="video16_9">Video 16:9</label>
+										</span>
+                                </td>
+                            </tr>
+                            <tr ng-show="formatType==='sensor'">
+                                <td><i class="icon-video icon-2x"></i></td>
+                                <td>
+                                    <i class="icon-th pull-right" ng-click="ctrl.showDialog('chooseSensor')"></i>
+                                </td>
+                                <td colspan="2" mb-help="Sensor size from common values.">
+                                    <mb-select ng-model="format" select-items="sensorsList" item-label="item.key" item-value="item.key" group-by="sensorGroups[item.group]" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeFormat()"></mb-select>
+                                </td>
+                                <td mb-help="Crop factor value for the chosen sensor size.">
+                                    crop: <em>{{sensor.multiplier | number:2}}x</em>
+                                </td>
+                            </tr>
+                            <tr ng-show="formatType==='camera'" mb-help="Sensor size and integrated lens parameters based on data from the camera database.">
+                                <td><i class="icon-camera icon-2x"></i></td>
+                                <td colspan="2">Make:
+                                    <mb-select ng-model="cameraMake" select-items="cameraMakes" item-label="item.make" placeholder="Choose make" search-enabled="true" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeCameraMake()"></mb-select>
+                                </td>
+                                <td>Model:
+                                    <mb-select ng-model="cameraModel" select-items="cameraMake.cameras" item-label="item.model" track-by="item.id" placeholder="Choose camera model" empty-item="Choose camera make first" search-enabled="true" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeCameraModel()"></mb-select>
+                                </td>
+                                <td mb-help="Crop factor value for the chosen camera model.">
+                                    crop: <em>{{cameraModel.m | mbNumber:2}}x</em>
+                                    <span ng-show="cameraModel.l"><br/><a href="https://www.digicamdb.com/specs/{{cameraModel.l}}/" ng-click="ctrl.trackEvent('DigicamdbLinkOpened', cameraModel.l)"
+											target="_blank">Dane&nbsp;tech.<i class="icon-link-ext"></i></a></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <mb-infotip infotip-id="cameraDatabase" infotip-active="formatType==='sensor'">
+                        The sensor size can be also set by choosing a camera from the database.
+                    </mb-infotip>
+
+                    <table class="layoutBox" id="lens">
+                        <colgroup>
+                            <col style="width:3em" />
+                            <col style="width:6em" />
+                            <col style="width:2em" />
+                            <col style="width:100%" />
+                            <col style="width:5em" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th colspan="5">Lens</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-hide="!advanced && lensMakes.length === 0 || formatType==='camera' && cameraModel && cameraModel.lens" mb-help="Lens parameters loaded from the databse.">
+                                <td colspan="3">
+                                    <mb-select ng-model="lensMake" select-items="lensMakes" item-label="item.make" default-item="Default" search-enabled="true" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeLensMake()"></mb-select>
+                                </td>
+                                <td ng-show="lensMake">
+                                    <mb-select ng-model="lensModel" select-items="lensMake.lenses" group-by="item.group" item-label="item.model" track-by="item.id" placeholder="Choose lens model" search-enabled="true" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeLensModel()"></mb-select>
+                                </td>
+                                <td colspan="2">
+                                    <div ng-show="advanced" mb-help="Filtering the lens list by sensor size and camera mount.">
+                                        <input id="compatibleLensCheckbox" type="checkbox" ng-model="matchingLens" ng-change="ctrl.changeMatchingLens()" /><label for="compatibleLensCheckbox">Only matching</label>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr mb-help="Physical focal length of the lens.">
+                                <td><i class="icon-videocam icon-2x"></i></td>
+                                <td>
+                                    f=<input type="tel" ng-class="{'input-medium':sensor.group=='largeFormat'}" ng-model="f" ng-change="ctrl.changeF(true)" mb-min-max="{min:lens.minF || sensor.minF/2, max:lens.maxF || sensor.maxF*3}" mb-round-number="1"
+                                        ng-disabled="fourierBlurProgress < 100" ng-readonly="lens.fixedF" mb-validation-messages/>mm<br/>
+                                    <span ng-if="sensor.multiplier != 1.0" mb-help="Focal length equivalent for full frame (135 film) camera.">
+											(eqv.&nbsp;{{f*sensor.multiplier | number:0}}mm)
+										</span>
+                                </td>
+                                <td colspan="3">
+                                    <input ng-model="f" ng-show="!lens.fixedF" mb-slider="{min:lens.minF || sensor.minF, max:lens.maxF || sensor.maxF, scale:7, unit:'mm', rounding:lens.rounding}" mb-slider-exponent="5" on-change="ctrl.changeF" />
+                                </td>
+                            </tr>
+                            <tr mb-help="F-number of the lens (aperture).">
+                                <td><i class="icon-aperture icon-2x"></i></td>
+                                <td>f/<input type="tel" ng-model="a" ng-disabled="fourierBlurProgress < 100" ng-readonly="lens.fixedA" ng-change="ctrl.changeA(true)" mb-min-max="{min:lens.minA || 0.5, max:lens.maxA || 128}" mb-round-number="1" mb-validation-messages/>&nbsp;<br/>
+                                    <span ng-if="sensor.multiplier != 1.0" mb-help="F-number equivalent for full frame (135 film) camera.">
+											(eqv.&nbsp;f/{{a*sensor.multiplier | number:1}})
+										</span>
+                                </td>
+                                <td colspan="3">
+                                    <input ng-model="a" ng-show="!lens.fixedA" mb-slider="{values:apertureValues, labels:apertureLabels, min:lens.minA, max:lens.maxA}" on-change="ctrl.changeA" />
+                                </td>
+                            </tr>
+                            <tr ng-show="advanced" mb-help="Additional converter that changes focal length or image ratio.">
+                                <td><i class="icon-cancel icon-2x"></i></td>
+                                <td colspan="2">
+                                    Converter:
+                                    <mb-select ng-model="conv" select-items="lensConverters" item-label="item.key" group-by="item.group" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeConv({{conv}})"></mb-select>
+                                </td>
+                                <td colspan="2">
+                                    <div ng-if="conv.multiplier !== 1.0">
+                                        Effective focal length: <em>{{f * conv.multiplier | mbNumber:0}}mm</em>
+                                        <span ng-if="sensor.multiplier != 1.0">(eqv.&nbsp;{{f * conv.multiplier * sensor.multiplier | number:0}}mm)</span>
+                                        <br/> Effective aperture: <em>f/{{a * conv.multiplier | mbNumber:1}}</em>
+                                        <span ng-if="sensor.multiplier != 1.0">(eqv.&nbsp;f/{{a * conv.multiplier * sensor.multiplier | number:1}})</span>
+                                    </div>
+                                    <div ng-show="conv.anamorph !== 1.0 || conv.rearAnamorph !== 1.0">
+                                        Image ratio: <em>{{sensor.size.max/sensor.size.min | mbNumber:2}}:1</em>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <mb-infotip infotip-id="sliderKeyboardScroll" infotip-active="!isMobile">
+                        When the slider is active you can use arrow keys or mouse scroll wheel to change its value.
+                    </mb-infotip>
+
+                    <mb-tooltip show-when="y === y0 + minSeparation" timeout="3000" mb-cloak="">
+                        <span class="warning">The model cannot be placed further than the background.</span>
+                    </mb-tooltip>
+                    <table class="layoutBox" id="position">
+                        <colgroup>
+                            <col style="width: 3em" />
+                            <col style="width: 100%" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th colspan="2">Distance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr mb-help="Distance from the camera to model - equal to the focusing distance.">
+                                <td><i class="icon-female icon-2x"></i></td>
+                                <td>Model (focus):
+                                    <span class="pull-right" ng-show="advanced" mb-help="Moves the background together with model distance changes.">
+											<input id="constDistanceCheckbox" type="checkbox" ng-model="constDistance" ng-change="constDistance && ctrl.trackEvent('ConstDistanceEnabled')"/>
+											<label for="constDistanceCheckbox">Const. background distance</label>
+										</span>
+                                    <span ng-show="units=='metric'">
+											<input type="tel" class="input-wide" ng-model="y0" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeY0(true)" mb-multiplier="10" mb-round-number="1" 
+												mb-min-max="{min:minY0, max:$min(maxY,y-minSeparation)}" mb-validation-messages/>cm = {{y0/1000|infiniteNumber:2:units}} 
+										</span>
+                                    <span ng-show="units=='imperial'">
+											<input type="tel" class="input-wide" ng-model="y0" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeY0(true)" mb-multiplier="304.8" mb-round-number="2"
+												mb-min-max="{min:minY0, max:$min(maxY,y-minSeparation)}" mb-validation-messages/>ft = {{y0/914.4|infiniteNumber:2}}yd 
+										</span>
+                                    <input ng-model="y0" mb-slider="y0SliderConfig" mb-slider-exponent="5" on-change="ctrl.changeY0" />
+                                </td>
+                            </tr>
+                            <tr mb-help="Distance from the camera to background." ng-show="advanced">
+                                <td><i class="icon-tree icon-2x"></i></td>
+                                <td>Background:
+                                    <span class="pull-right" mb-help="Enables changing the background size with distance.">
+											<input type="checkbox" ng-model="scaleBackground" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeScaleBackground()" id="scaleBackgroundCheckbox"/>
+											<label for="scaleBackgroundCheckbox">Background scaling</label>
+										</span>
+                                    <span ng-show="units=='metric'">
+											<input type="tel" class="input-wide" ng-model="y" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeY(true)" mb-multiplier="10" mb-round-number="1" 
+												mb-min-max="{min:$max(minY,y0+minSeparation), max:maxY}" mb-validation-messages/>cm = {{y/1000|infiniteNumber:2:units}}
+										</span>
+                                    <span ng-show="units=='imperial'">
+											<input type="tel" class="input-wide" ng-model="y" ng-disabled="fourierBlurProgress < 100" ng-change="ctrl.changeY(true)" mb-multiplier="304.8" mb-round-number="2" 
+												mb-min-max="{min:$max(minY,y0+minSeparation), max:maxY}" mb-validation-messages/>ft = {{y/914.4|infiniteNumber:2}}yd
+										</span>
+                                    <input ng-model="y" mb-slider="ySliderConfig" mb-slider-exponent="5" mb-slider-infinity="true" on-change="ctrl.changeY" ng-disabled="fourierBlurProgress < 100" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <table class="layoutBox" id="framing">
+                        <colgroup>
+                            <col style="width: 3em" />
+                            <col style="width: 34%" />
+                            <col style="width: 33%" />
+                            <col style="width: 33%" />
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th colspan="4">Framing</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr mb-help="Keeping constant framing by adequate automatic compensation of focal length or distance.">
+                                <td rowspan="2">
+                                    <i class="icon-crop icon-2x"></i>
+                                </td>
+                                <td>
+                                    <input type="checkbox" ng-model="lockFOV" ng-change="ctrl.changeLockFOV()" id="lockFOV" />
+                                    <label for="lockFOV">Lock field of view</label>
+                                </td>
+                                <td>
+                                    <input type="radio" id="const_f" ng-model="constant" value="f" ng-change="ctrl.trackEvent('FixedParamChanged','f')" ng-disabled="lens.fixedF" />
+                                    <label for="const_f">Constant focal length</label>
+                                </td>
+                                <td>
+                                    <input type="radio" id="const_y0" ng-model="constant" value="y0" ng-change="ctrl.trackEvent('FixedParamChanged','y0')" ng-disabled="lens.fixedF" />
+                                    <label for="const_y0">Constant distance</label>
+                                </td>
+                            </tr>
+                            <tr mb-help="Predefined, typical ways of framing.">
+                                <td colspan="3" style="text-align: center;">
+                                    <button ng-click="ctrl.crop(320)">Face</button>
+                                    <button ng-click="ctrl.crop(480)">Portrait</button>
+                                    <button ng-click="ctrl.crop(700)">Medium shot</button>
+                                    <button ng-click="ctrl.crop(1000)">American shot</button>
+                                    <button ng-click="ctrl.crop(1700)">Full shot</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <mb-infotip infotip-id="lockFOV" infotip-active="!lockFOV">
+                        Activate the field of view lock to check how parameter changes affect the image with constant size of the model on the photo.
+                    </mb-infotip>
+
+                </div>
+            </section>
+        </div>
+
+        <section id="simulation" ng-style="{width:imageWidth}" mb-cloak="" mb-sticky-scroll="#panelLeft" mb-sticky-scroll-disabled="vertical">
+            <div id="simulationValues">
+                <header>
+                    <strong mb-show-hide="show.simulation" enabled="vertical">
+				 			<i class="icon-picture"></i>&nbsp;Simulation
+			 			</strong>
+                    <span style="float:right;" ng-if="!diffraction" mb-help="Background blur in mm on a sensor and in percent along the longer sensor axis.">
+				 			Background blur:
+				 			<span ng-if="!conv || conv.anamorph === 1">{{totalBlur | mbNumber:3:0}}mm / {{totalBlur/sensor.size.max*100 | mbNumber:2:0.01:100}}%</span>
+                    <span ng-if="conv && conv.anamorph > 1">
+			 					<i class="icon-resize-vertical"></i>{{totalBlur | mbNumber:3:0}}mm / {{totalBlur/sensor.size.max*100 | mbNumber:2:0.01:100}}%
+			 					<i class="icon-resize-horizontal"></i>{{totalBlur/conv.anamorph | mbNumber:3:0}}mm / {{totalBlur/conv.anamorph/sensor.size.max*100 | mbNumber:2:0.01:100}}%
+	 						</span>
+                    </span>
+                    <span style="float:right;" ng-if="diffraction" mb-help="F-number above which reducing the aperture no longer makes the background sharper due to diffraction.">
+				 			Optimal f-number: <em>f/{{optiA | number:1}}</em> ({{optiBlur | number:3}}mm / {{optiLines | maxNumber:0:maxLines}} <ng-pluralize count="optiLines" when="{'one': 'line', 'other': 'lines'}"></ng-pluralize> / {{optiMpix | maxNumber:1:maxMpix}}Mpix)
+				 		</span>
+                </header>
+                <table class="valuesTable" ng-show="advanced">
+                    <tr ng-show="!diffraction">
+                        <td>
+                            <span mb-help="Enables diffraction in image blur calculations.">
+									<input id="diffractionCheckbox" type="checkbox" ng-model="diffraction" ng-change="ctrl.changeDiffraction()"/><label for="diffractionCheckbox">Diffraction</label>
+								</span>
+                        </td>
+                    </tr>
+                    <tr ng-show="diffraction">
+                        <td style="width: 45%" mb-help="Image blur size caused by diffraction in mm on a sensor, in lines for MTF 50% along the shorter sensor axis and in megapixels.">
+                            <input id="diffractionCheckbox" type="checkbox" ng-model="diffraction" ng-change="ctrl.changeDiffraction()" /><label for="diffractionCheckbox">Diffraction:</label>
+                            <em ng-class="{underline: blur<=airy}">{{airy | number:3}}mm&nbsp;/&nbsp;{{diffractionLines | maxNumber:0:maxLines}}&nbsp;<ng-pluralize ng-show="diffractionLines&lt;=maxLines" count="diffractionLines" when="{'one': 'line', 'other': 'lines'}"></ng-pluralize><span ng-show="diffractionLines>maxLines">lines</span>&nbsp;/&nbsp;{{diffractionMpix | maxNumber:1:maxMpix}}Mpix</em>
+                        </td>
+                        <td style="text-align:center;width:10%" mb-help="Indicates which factor: depth of field or diffraction, has bigger impact on the background sharpness on the photo.">
+                            <i ng-show="blur<=airy" class="icon-left-big"></i>
+                            <i ng-show="blur>airy" class="icon-right-big"></i>
+                        </td>
+                        <td style="width:45%" mb-help="DOF background blur in mm on a sensor, in lines for MTF 50% along the shorter sensor axis and in megapixels.">
+                            Background&nbsp;blur: <em ng-class="{underline: blur>airy}">{{blur | mbNumber:3:0}}mm&nbsp;/&nbsp;{{lines | maxNumber:0:maxLines}}&nbsp;<ng-pluralize ng-show="lines&lt;=maxLines" count="lines" when="{'one': 'line', 'other': 'lines'}"></ng-pluralize><span ng-show="lines>maxLines">lines</span>&nbsp;/&nbsp;{{mpix | maxNumber:1:maxMpix}}Mpix</em>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <mb-infotip infotip-id="diffraction">
+                The diffraction causes image blur for big f-number values.<br/>You can notice it on the simulation.
+            </mb-infotip>
+
+            <mb-infotip infotip-id="fourierBlur" infotip-active="!fourierBlurType">
+                Use the bokeh simulation to generate more realistic background blur.
+            </mb-infotip>
+
+            <mb-infotip infotip-id="fourierBlurGenerate">
+                Use the Generate button to process the bokeh simulation after parameters change or enable the Auto feature.
+            </mb-infotip>
+
+            <mb-infotip infotip-id="fourierBlurAuto">
+                If the processing takes too long you can disable the Auto feature and run the generation manually with the Generate button.
+            </mb-infotip>
+
+            <div ng-hide="vertical && !show.simulation">
+                <figure id="viewport" ng-style="{width:imageSize.x, height:imageSize.y}" ng-class="{fisheye:backgroundWidth<imageSize.max && simulationValid, fourierWorking:fourierBlurProgress<100}" mb-help="Simulation of the parameters on a photo.">
+                    <div class='tooltip ng-animate-enabled' ng-show="backgroundScale === 0">
+                        <span class="warning">Maximum background scale exceeded.</span>
+                    </div>            
+                    <div class="tooltip ng-animate-enabled loading" ng-show="fourierBlurProgress < 100 || fourierBlurProgress === undefined">
+                        <span ng-show="fourierBlurProgress !== undefined">
+								Processing in progress...
+								<i class="icon-cog animate-spin" ng-show="fourierBlurProgress < 100"></i>
+								<button ng-show="fourierBlurProgress < 100" ng-click="ctrl.stopFourierBlur()">Cancel</button> 
+								<br/>
+								<progress max="100" ng-attr-value="{{fourierBlurProgress}}">{{fourierBlurProgress|number:0}}%</progress>
+							</span>
+                        <span ng-show="fourierBlurProgress === undefined" class="error">
+								Error occured during processing.<br/>Try again.
+							</span>
+                    </div>
+
+                    <div id="backgroundSVG" ng-show="!fourierBlurReady && simulationValid">
+                        <svg height="0" xmlns="http://www.w3.org/2000/svg">
+							   <filter id="blur">
+								   <feGaussianBlur id="blurSize" stdDeviation="0"></feGaussianBlur>
+							   </filter>
+							</svg>
+                        <svg viewBox="0 0 1000 1000" class="backgroundImg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.backgroundStyle(1)" ng-show="loadedBkg[1] && (backgroundScale==1 || (backgroundScale==2 && !loadedBkg[2]) || (backgroundScale==4 && !loadedBkg[4] && !loadedBkg[2]) || (backgroundScale==8 && !loadedBkg[8] && !loadedBkg[4] && !loadedBkg[2]))">
+								<image preserveAspectRatio="none" class="backgroundImg" mb-xlink-href="img/backgrounds/{{background.key}}1.jpg" ng-attr-x="{{500*(1-conv.anamorph)}}" y="0" ng-attr-width="{{1000*conv.anamorph}}" height="1000" filter="url(#blur)" mb-onload="loadedBkg[1]=true" mb-onerror="loadedBkg[1]=false"></image>
+							</svg>
+                        <svg viewBox="0 0 500 1000" class="backgroundImg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.backgroundStyle(2)" ng-show="loadedBkg[2] && (backgroundScale==2 || (backgroundScale==4 && !loadedBkg[4]) || (backgroundScale==8 && !loadedBkg[8] && !loadedBkg[4]))">
+								<image preserveAspectRatio="none" class="backgroundImg" mb-xlink-href="img/backgrounds/{{background.key}}2.jpg" ng-attr-x="{{250*(1-conv.anamorph)}}" y="0" ng-attr-width="{{500*conv.anamorph}}" height="1000" filter="url(#blur)" mb-onload="loadedBkg[2]=true" mb-onerror="loadedBkg[2]=false"></image>
+							</svg>
+                        <svg viewBox="0 0 250 1000" class="backgroundImg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.backgroundStyle(4)" ng-show="loadedBkg[4] && (backgroundScale==4 || (backgroundScale==8 && !loadedBkg[8]))">
+								<image preserveAspectRatio="none" class="backgroundImg" mb-xlink-href="img/backgrounds/{{background.key}}4.jpg" ng-attr-x="{{125*(1-conv.anamorph)}}" y="0" ng-attr-width="{{250*conv.anamorph}}" height="1000" filter="url(#blur)" mb-onload="loadedBkg[4]=true" mb-onerror="loadedBkg[4]=false"></image>
+							</svg>
+                        <svg viewBox="0 0 125 1000" class="backgroundImg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.backgroundStyle(8)" ng-show="loadedBkg[8] && backgroundScale==8">
+								<image preserveAspectRatio="none" class="backgroundImg" mb-xlink-href="img/backgrounds/{{background.key}}8.jpg" ng-attr-x="{{62.5*(1-conv.anamorph)}}" y="0" ng-attr-width="{{125*conv.anamorph}}" height="1000" filter="url(#blur)" mb-onload="loadedBkg[8]=true" mb-onerror="loadedBkg[8]=false"></image>
+							</svg>
+                    </div>
+
+                    <div id="backgroundFilter" ng-show="!fourierBlurReady && simulationValid">
+                        <img id="backgroundImg1" class="backgroundImg" ng-src="img/backgrounds/{{background.key}}1.jpg" mb-onload="loadedBkg[1]=true" mb-onerror="loadedBkg[1]=false" ng-show="loadedBkg[1] && (backgroundScale==1 || (backgroundScale==2 && !loadedBkg[2]) || (backgroundScale==4 && !loadedBkg[4] && !loadedBkg[2]) || (backgroundScale==8 && !loadedBkg[8] && !loadedBkg[4] && !loadedBkg[2]))"
+                            ng-style="ctrl.backgroundStyle(1, true)" />
+                        <img id="backgroundImg2" class="backgroundImg" ng-src="img/backgrounds/{{background.key}}2.jpg" mb-onload="loadedBkg[2]=true" mb-onerror="loadedBkg[2]=false" ng-show="loadedBkg[2] && (backgroundScale==2 || (backgroundScale==4 && !loadedBkg[4]) || (backgroundScale==8 && !loadedBkg[8] && !loadedBkg[4]))"
+                            ng-style="ctrl.backgroundStyle(2, true)" />
+                        <img id="backgroundImg4" class="backgroundImg" ng-src="img/backgrounds/{{background.key}}4.jpg" mb-onload="loadedBkg[4]=true" mb-onerror="loadedBkg[4]=false" ng-show="loadedBkg[4] && (backgroundScale==4 || (backgroundScale==8 && !loadedBkg[8]))" ng-style="ctrl.backgroundStyle(4, true)"
+                        />
+                        <img id="backgroundImg8" class="backgroundImg" ng-src="img/backgrounds/{{background.key}}8.jpg" mb-onload="loadedBkg[8]=true" mb-onerror="loadedBkg[8]=false" ng-show="loadedBkg[8] && backgroundScale==8" ng-style="ctrl.backgroundStyle(8, true)" />
+                    </div>
+
+                    <div id="backgroundFourier" ng-show="fourierBlurReady && simulationValid">
+                        <img id="canvasBackgroundImg1" ng-src="img/backgrounds/{{background.key}}1.jpg" mb-onload="loadedBkg[1]=true" mb-onerror="loadedBkg[1]=false" style="display: none;" />
+                        <img id="canvasBackgroundImg2" ng-src="img/backgrounds/{{background.key}}2.jpg" mb-onload="loadedBkg[2]=true" mb-onerror="loadedBkg[2]=false" style="display: none;" />
+                        <img id="canvasBackgroundImg4" ng-src="img/backgrounds/{{background.key}}4.jpg" mb-onload="loadedBkg[4]=true" mb-onerror="loadedBkg[4]=false" style="display: none;" />
+                        <img id="canvasBackgroundImg8" ng-src="img/backgrounds/{{background.key}}8.jpg" mb-onload="loadedBkg[8]=true" mb-onerror="loadedBkg[8]=false" style="display: none;" />
+                        <div id="canvasSVG">
+                            <svg height="0" xmlns="http://www.w3.org/2000/svg">
+									<filter id="canvasDiffraction">
+										<feGaussianBlur id="canvasDiffractionSize" stdDeviation="0"></feGaussianBlur>
+									</filter>
+								</svg>
+                            <canvas id="backgroundCanvas" width="1024" height="1024" style="filter:url(#canvasDiffraction)" ng-style="{left:(imageSize.x-fftSize)/2, top:(fourierImageSizeY-fftSize)/2 - (fourierBackgroundOffset - backgroundOffset)}"></canvas>
+                        </div>
+                        <div id="canvasFilter">
+                            <canvas id="backgroundCanvas" width="1024" height="1024" ng-style="{left:(imageSize.x-fftSize)/2, top:(fourierImageSizeY-fftSize)/2 - (fourierBackgroundOffset - backgroundOffset),'-webkit-filter':ctrl.diffractionFilter(),filter:ctrl.diffractionFilter()}"></canvas>
+                        </div>
+                    </div>
+
+                    <div id="modelSVG" ng-show="simulationValid && loadedModel.all">
+                        <svg height="0" xmlns="http://www.w3.org/2000/svg">
+								<filter id="diffraction">
+									<feGaussianBlur id="diffractionSize" stdDeviation="0"></feGaussianBlur>
+								</filter>
+								<filter id="ears">
+									<feGaussianBlur id="earsBlurSize" stdDeviation="0"></feGaussianBlur>
+								</filter>
+								<filter id="mouth">
+									<feGaussianBlur id="mouthBlurSize" stdDeviation="0"></feGaussianBlur>
+								</filter>
+								<filter id="nose">
+									<feGaussianBlur id="noseBlurSize" stdDeviation="0"></feGaussianBlur>
+								</filter>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(1)">
+								<image id="modelBodySVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}.png" x="0" y="0" width="242" height="440" filter="url(#ears)" mb-onload="loadedModel[0]=true"></image>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(earsCoeff)">
+								<image id="modelEarsSVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}-.svg" x="0" y="0" width="242" height="440" filter="url(#ears)" mb-onload="loadedModel[1]=true"></image>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(1)">
+								<image id="modelFaceSVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}+.svg" x="0" y="0" width="242" height="440" filter="url(#mouth)" mb-onload="loadedModel[2]=true"></image>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(mouthCoeff)">
+								<image id="modelMouthSVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}++.svg" x="0" y="0" width="242" height="440" filter="url(#mouth)" mb-onload="loadedModel[3]=true"></image>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(1)">
+								<image id="modelEyesSVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}=.svg" x="0" y="0" width="242" height="440" filter="url(#diffraction)" mb-onload="loadedModel[4]=true"></image>
+							</svg>
+                        <svg viewBox="0 0 242 440" width="242" height="440" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ng-style="ctrl.modelStyle(noseCoeff)">
+								<image id="modelNoseSVG" class="modelImg" mb-xlink-href="img/models/{{model.key}}+++.svg" x="0" y="0" width="242" height="440" filter="url(#nose)" mb-onload="loadedModel[5]=true"></image>
+							</svg>
+                    </div>
+
+                    <div id="modelFilter" ng-show="simulationValid && loadedModel.all">
+                        <img ng-src="img/models/{{model.key}}--.svg" ng-style="ctrl.modelStyle(1, earsBlur)" mb-onload="loadedModel[0]=true" />
+                        <img ng-src="img/models/{{model.key}}-.svg" ng-style="ctrl.modelStyle(earsCoeff, earsBlur)" mb-onload="loadedModel[1]=true" />
+                        <img ng-src="img/models/{{model.key}}+.svg" ng-style="ctrl.modelStyle(1, mouthBlur)" mb-onload="loadedModel[2]=true" />
+                        <img ng-src="img/models/{{model.key}}++.svg" ng-style="ctrl.modelStyle(mouthCoeff, mouthBlur)" mb-onload="loadedModel[3]=true" />
+                        <img ng-src="img/models/{{model.key}}=.svg" ng-style="ctrl.modelStyle(1, 0)" mb-onload="loadedModel[4]=true" />
+                        <img ng-src="img/models/{{model.key}}+++.svg" ng-style="ctrl.modelStyle(noseCoeff, noseBlur)" mb-onload="loadedModel[5]=true" />
+                    </div>
+
+                    <img src="img/hole-fisheye.svg" ng-show="holeFisheye < 1.5 * imageSize.max" ng-style="{width:holeFisheye*12 + 'px', right:-(holeFisheye*12 - imageSize.x)/2+'px', bottom:-(holeFisheye*12 - imageSize.y)/2 + 'px'}" />
+                    <img src="img/hole-format.svg" ng-show="holeFormat" ng-style="{width:holeFormat*12 + 'px', right:-(holeFormat*12 - imageSize.x)/2+'px', bottom:-(holeFormat*12 - imageSize.y)/2 + 'px', transform:'scaleY('+(conv.rearAnamorph/conv.anamorph)+')'}" />
+            </div>
+            </span>
+            </figure>
+            </div>
+        </section>
+        <!-- simulation -->
+        <footer>
+            &copy; <a rel="author" href="https://www.michalbemowski.pl" target="_blank" ng-click="ctrl.trackEvent('HomepageLinkOpened', 'footer')">Michael Bemowski</a>
+        </footer>
+
+    </main>
+
+    <div id="dialog" class="ng-animate-enabled" ng-controller="DialogCtrl as dialogCtrl" mb-show="dialog.show" mb-after-hide="dialogCtrl.afterHide()" mb-cloak="">    
+            
+            <span ng-switch-when='chooseBackground' class="noscript-hide">
+	 				<div class="backgroundsList center" ng-style="{width: $math.floor((dialogWidth-20)/145) * 145}">
+		 				<div class="selectItem" ng-repeat="bkg in backgroundsList" ng-class="{selected:bkg===background}" ng-click="ctrl.chooseBackground(bkg)">
+		 					<img ng-src="img/backgrounds/{{bkg.key}}.jpg"/>
+		 					{{bkg.name}}
+		 				</div>
+	 				</div>
+	 			</span>
+            <span ng-switch-when='chooseModel' class="noscript-hide">
+	 				<table class="modelsTable choiceTable">
+	 					<tr>
+	 						<td ng-click="ctrl.chooseModel('girl2')" ng-class="{selected:model.key=='girl2'}"><img src="img/models/girl2.png?v=20150430"/><br/>{{ctrl.printModel("girl2")}}</td>
+	 						<td ng-click="ctrl.chooseModel('girl1')" ng-class="{selected:model.key=='girl1'}"><img src="img/models/girl1.png?v=20150430"/><br/>{{ctrl.printModel("girl1")}}</td>
+	 						<td ng-click="ctrl.chooseModel('woman1')" ng-class="{selected:model.key=='woman1'}"><img src="img/models/woman1.png?v=20150430"/><br/>{{ctrl.printModel("woman1")}}</td>
+	 						<td ng-click="ctrl.chooseModel('man1')" ng-class="{selected:model.key=='man1'}"><img src="img/models/man1.png?v=20150430"/><br/>{{ctrl.printModel("man1")}}</td>
+	 					</tr>
+	 					<tr>
+	 						<td ng-click="ctrl.chooseModel('boy2')" ng-class="{selected:model.key=='boy2'}"><img src="img/models/boy2.png?v=20150430"/><br/>{{ctrl.printModel("boy2")}}</td>
+	 						<td ng-click="ctrl.chooseModel('boy1')" ng-class="{selected:model.key=='boy1'}"><img src="img/models/boy1.png?v=20150430"/><br/>{{ctrl.printModel("boy1")}}</td>
+	 						<td ng-click="ctrl.chooseModel('woman2')" ng-class="{selected:model.key=='woman2'}"><img src="img/models/woman2.png?v=20150430"/><br/>{{ctrl.printModel("woman2")}}</td>
+	 						<td ng-click="ctrl.chooseModel('man2')" ng-class="{selected:model.key=='man2'}"><img src="img/models/man2.png?v=20150430"/><br/>{{ctrl.printModel("man2")}}</td>
+	 					</tr>
+	 				</table>
+	 			</span>
+            <span ng-switch-when='chooseSensor' class="noscript-hide">
+					<table class="sensorListTabs tabbedTable" ng-switch="sensorTab" ng-init="sensorTab = sensor.group">
+ 						<thead>
+	 						<tr>
+	 							<td ng-class="{'tab-selected':sensorTab=='largeFormat'}" ng-click="sensorTab='largeFormat'">
+	 								Large format
+								</td>
+	 							<td ng-class="{'tab-selected':sensorTab=='mediumFormat'}" ng-click="sensorTab='mediumFormat'">
+	 								Medium format
+								</td>
+	 							<td ng-class="{'tab-selected':sensorTab=='DSLR'}" ng-click="sensorTab='DSLR'">
+	 								DSLRs / mirrorless
+								</td>
+	 							<td ng-class="{'tab-selected':sensorTab=='compact'}" ng-click="sensorTab='compact'">
+	 								Compact cameras
+								</td>
+	 						</tr>
+ 						</thead>
+ 						<tbody ng-switch-when="largeFormat">
+ 							<tr>
+ 								<td colspan="4">
+			 						<div class="scrollContainer">
+				 						<span class="smallText center" style="margin-bottom: 1em;">The large format scale is 3x smaller relative to other sizes.</span>
+            <div ng-style="{width: $math.floor((dialogWidth-55)/270) * 270}">
+                <div class="selectItem selectItemBig" ng-repeat="sensor in sensorsList | filter:{group:'largeFormat'}" ng-class="{selected:format==sensor.key}" ng-click="ctrl.chooseSensor(sensor.key)">
+                    <div class="sensorModelBig" ng-style="{width:sensor.size.x*0.66,height:sensor.size.y*0.66, 'margin-top':110-sensor.size.y/3}"></div>
+                    {{sensor.key}}
+                </div>
+            </div>
+        </div>
+        </td>
+        </tr>
+        </tbody>
+        <tbody ng-switch-when="mediumFormat">
+            <tr>
+                <td colspan="4">
+                    <div class="scrollContainer">
+                        <div ng-style="{width: $math.floor((dialogWidth-55)/270) * 270}">
+                            <div class="selectItem selectItemBig" ng-repeat="sensor in sensorsList | filter:{group:'mediumFormat'}" ng-class="{selected:format==sensor.key}" ng-click="ctrl.chooseSensor(sensor.key)">
+                                <div class="sensorModel" ng-style="{width:sensor.size.x*2,height:sensor.size.y*2, 'margin-top':120-sensor.size.y}"></div>
+                                {{sensor.key}}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+        <tbody ng-switch-default>
+            <tr>
+                <td colspan="4">
+                    <div class="scrollContainer">
+                        <div ng-style="{width: $math.floor((dialogWidth-55)/130) * 130}">
+                            <div class="selectItem" ng-repeat="sensor in sensorsList | filter:{group:sensorTab}" ng-class="{selected:format==sensor.key}" ng-click="ctrl.chooseSensor(sensor.key)">
+                                <div class="sensorModel" ng-style="{width:sensor.size.x*2,height:sensor.size.y*2, 'margin-top':50-sensor.size.y}"></div>
+                                {{sensor.key}}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+        </table>
+        </span>
+        <span ng-switch-when='link' class="noscript-hide">
+	 				<h3>Copy the link below to return to the current settings in the future or on another computer.</h3>
+	 				<input class="link-input" type="text" readonly="readonly" value="{{ctrl.getShortLink()}}" onclick="this.select()"/>
+	 				<i class="link-copy icon-docs" onclick="$('.link-input').select();document.execCommand('copy');"
+	 				   title="Copy link to clipboard"></i>
+					<h3>You can also share it with others.</h3> 
+	 			</span>
+        <span ng-switch-when='browserUnsupported' class="noscript-hide">
+	 				<h3>Please update your browser to use all features of this page.</h3>
+					<p>
+						<table style="width:100%;text-align:center;">
+							<tr>
+								<td style="width: 20%">
+									<a href="https://www.google.com/chrome/browser/" target="_blank">
+										<img src="img/browser-chrome.gif"/><br/>
+										Chrome
+									</a>
+								</td>
+								<td style="width: 20%">
+									<a href="https://www.mozilla.org/firefox/" target="_blank">
+										<img src="img/browser-firefox.gif"/><br/>
+										Firefox
+									</a>
+								</td>
+								<td style="width: 20%">
+									<a href="https://www.opera.com" target="_blank">
+										<img src="img/browser-opera.gif"/><br/>
+										Opera
+									</a>
+								</td>
+								<td style="width: 20%">
+									<a href="https://www.apple.com/safari/" target="_blank">
+										<img src="img/browser-safari.gif"/><br/>
+										Safari
+									</a>
+								</td>
+								<td style="width: 20%">
+									<a href="https://windows.microsoft.com/en-us/internet-explorer/download-ie" target="_blank">
+										<img src="img/browser-ie.gif"/><br/>
+										Internet Explorer
+									</a>
+								</td>
+							</tr>
+						</table>
+						<br/> 
+					</p>
+ 				</span>
+        <span ng-switch-when='chooseBokeh' class="noscript-hide">
+					<table class='blurTable choiceTable'>
+						<tr>
+							<td ng-class="{selected:fourierBlurType=='0'}" ng-click="ctrl.selectFourierBlurType('0')">
+								<img src='img/blur_gauss.png'/>Excellent
+							</td>
+							<td ng-class="{selected:fourierBlurType=='5'}" ng-click="ctrl.selectFourierBlurType('5')">
+								<img src='img/blur_5.png'/>5 blades diaphragm
+							</td>
+						</tr>
+						<tr>
+							<td ng-class="{selected:fourierBlurType=='1'}" ng-click="ctrl.selectFourierBlurType('1')">
+								<img src='img/blur_good.png'/>Soft
+							</td>
+							<td ng-class="{selected:fourierBlurType=='6'}" ng-click="ctrl.selectFourierBlurType('6')">
+								<img src='img/blur_6.png'/>6 blades diaphragm
+							</td>
+						</tr>
+						<tr>
+							<td ng-class="{selected:fourierBlurType=='2'}" ng-click="ctrl.selectFourierBlurType('2')">
+								<img src='img/blur_neutral.png'/>Neutral
+							</td>
+							<td ng-class="{selected:fourierBlurType=='7'}" ng-click="ctrl.selectFourierBlurType('7')">
+								<img src='img/blur_7.png'/>7 blades diaphragm
+							</td>
+						</tr>
+						<tr>
+							<td ng-class="{selected:fourierBlurType=='3'}" ng-click="ctrl.selectFourierBlurType('3')">
+								<img src='img/blur_bad.png'/>Hard
+							</td>
+							<td ng-class="{selected:fourierBlurType=='8'}" ng-click="ctrl.selectFourierBlurType('8')">
+								<img src='img/blur_8.png'/>8 blades diaphragm
+							</td>
+						</tr>
+						<tr>
+							<td ng-class="{selected:fourierBlurType=='4'}" ng-click="ctrl.selectFourierBlurType('4')">
+								<img src='img/blur_mirror.png'/>Catadioptric lens
+							</td>
+							<td ng-class="{selected:fourierBlurType=='9'}" ng-click="ctrl.selectFourierBlurType('9')">
+								<img src='img/blur_9.png'/>9 blades diaphragm
+							</td>
+						</tr>
+					</table>
+ 				</span>
+        <span ng-switch-when='customCoc' class="noscript-hide" ng-controller="CustomCocCtrl as customCocCtrl">
+ 					<form name="customCocForm" novalidate="novalidate">
+	 					<table class="customCocTabs tabbedTable" ng-switch="customCoc.type">
+	 						<thead>
+		 						<tr>
+		 							<td colspan="2" ng-class="{'tab-selected':customCoc.type=='value'}" ng-click="customCoc.type='value'">
+		 								Value
+									</td>
+		 							<td colspan="2" ng-class="{'tab-selected':customCoc.type=='lines'}" ng-click="customCoc.type='lines'">
+		 								Diagonal
+									</td>
+		 							<td colspan="2" ng-class="{'tab-selected':customCoc.type=='resolution'}" ng-click="customCoc.type='resolution'">
+		 								Resolution
+									</td>
+		 							<td colspan="2" ng-class="{'tab-selected':customCoc.type=='print'}" ng-click="customCoc.type='print'">
+		 								Print
+									</td>
+		 							<td colspan="2" ng-class="{'tab-selected':customCoc.type=='view'}" ng-click="customCoc.type='view'">
+		 								View
+									</td>
+		 						</tr>
+	 						</thead>
+	 						<tbody ng-switch-when="value">
+		 						<tr>
+		 							<td colspan="4">
+		 								Circle of confusion size:
+		 							</td>
+		 							<td colspan="6">
+		 								<input type="tel" class="input-wide" ng-model="customCoc.value" mb-validation-messages
+		 								mb-round-number="4" mb-min-max="{min: 0.0001, max: 10}" required="required"/> mm
+		 							</td>
+		 						</tr>
+	 						</tbody>
+	 						<tbody ng-switch-when="lines">
+	 							<tr>
+	 								<td colspan="5">
+	 									Fraction of sensor diagonal:
+	 								</td>
+		 							<td colspan="5">
+		 								D/<input type="tel" class="input-medium" ng-model="customCoc.lines" ng-change="customCocCtrl.lines.change()"
+		 									mb-round-number="0" mb-min-max="{min: 10, max: 10000}" required="required" mb-validation-messages/>
+		 							</td>
+	 							</tr>
+	 							<tr>
+	 								<td colspan="5">
+	 									Circle of confusion:
+	 								</td>
+	 								<td colspan="5">
+		 								{{customCocCtrl.lines.value() | infiniteNumber:4}}mm
+	 								</td>
+	 							</tr>
+	 						</tbody>
+	 						<tbody ng-switch-when="resolution">
+	 							<tr>
+	 								<td colspan="4">
+	 									Dimensions:
+	 								</td>
+		 							<td colspan="6">
+		 								<input type="tel" class="input-wide" ng-model="customCoc.resolution.width" ng-change="customCocCtrl.resolution.changeWidth()" 
+		 									mb-round-number="0" mb-min-max="{min: 1, max: 64000}" required="required" mb-validation-messages/> x 
+		 								<input type="tel" class="input-wide" ng-model="customCoc.resolution.height" ng-change="customCocCtrl.resolution.changeHeight()" 
+		 									mb-round-number="0" mb-min-max="{min: 1, max: 64000}" required="required" mb-validation-messages/> px 
+		 							</td>
+	 							</tr>
+	 								<td colspan="4">
+	 									Resolution:
+	 								</td>
+		 							<td colspan="6">
+		 								<input type="tel" class="input-medium" ng-model="customCoc.resolution.mpix" ng-change="customCocCtrl.resolution.changeMpix()" 
+		 									mb-round-number="1" mb-min-max="{min: 0.01, max: 1000}" required="required" mb-validation-messages/> Mpix
+		 							</td>
+	 							<tr>
+	 								<td colspan="4">
+	 									Circle of confusion:
+	 								</td>
+		 							<td colspan="6">
+		 								{{customCocCtrl.resolution.value() | infiniteNumber:4}}mm
+		 							</td>
+	 							</tr>
+	 						</tbody>
+	 						<tbody ng-switch-when="print">
+	 							<tr>
+	 								<td colspan="4">
+	 									Units:
+	 								</td>
+	 								<td colspan="6">
+	 									<select class="input-wide" ng-model="customCoc.print.units" ng-options="key as unit.unit for (key, unit) in customCocCtrl.units[units]"></select>
+	 								</td>
+	 							</tr>
+	 							<tr>
+	 								<td colspan="4">
+	 									Print size:
+	 								</td>
+		 							<td colspan="6" ng-switch="customCoc.print.units">
+	 									<span ng-switch-default="">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.print.height" ng-change="customCocCtrl.print.changeHeight()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].small.multiplier" mb-min-max="customCocCtrl.units[units].small.range"/> x
+			 								<input type="tel" class="input-medium" ng-model="customCoc.print.width" ng-change="customCocCtrl.print.changeWidth()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].small.multiplier" mb-min-max="customCocCtrl.units[units].small.range"/> {{customCocCtrl.units[units].small.unit}}
+	 									</span>
+        <span ng-switch-when="big">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.print.height" ng-change="customCocCtrl.print.changeHeight()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].big.multiplier" mb-min-max="customCocCtrl.units[units].big.range"/> x
+			 								<input type="tel" class="input-medium" ng-model="customCoc.print.width" ng-change="customCocCtrl.print.changeWidth()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].big.multiplier" mb-min-max="customCocCtrl.units[units].big.range"/> {{customCocCtrl.units[units].big.unit}}
+	 									</span>
+        </td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                Resolution:
+            </td>
+            <td colspan="6">
+                <input type="tel" class="input-medium" ng-model="customCoc.print.dpi" mb-validation-messages mb-round-number="0" mb-min-max="{min: 10, max: 8000}" required="required" /> dpi
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4">
+                Circle of confusion:
+            </td>
+            <td colspan="6">
+                {{customCocCtrl.print.value() | infiniteNumber:4}}mm
+            </td>
+        </tr>
+        </tbody>
+        <tbody ng-switch-when="view">
+            <tr>
+                <td colspan="4">
+                    Units:
+                </td>
+                <td colspan="6">
+                    <select class="input-wide" ng-model="customCoc.view.units" ng-options="key as unit.unit for (key, unit) in customCocCtrl.units[units]"></select>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    Image size:
+                </td>
+                <td colspan="6" ng-switch="customCoc.view.units">
+                    <span ng-switch-default="">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.height" ng-change="customCocCtrl.view.changeHeight()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].small.multiplier" mb-min-max="customCocCtrl.units[units].small.range"/> x 
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.width" ng-change="customCocCtrl.view.changeWidth()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].small.multiplier" mb-min-max="customCocCtrl.units[units].small.range"/>
+		 									{{customCocCtrl.units[units].small.unit}}
+	 									</span>
+                    <span ng-switch-when="big">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.height" ng-change="customCocCtrl.view.changeHeight()" required="required" mb-validation-messages 
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].big.multiplier" mb-min-max="customCocCtrl.units[units].big.range"/> x 
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.width" ng-change="customCocCtrl.view.changeWidth()" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].big.multiplier" mb-min-max="customCocCtrl.units[units].big.range"/>
+		 									{{customCocCtrl.units[units].big.unit}}
+	 									</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    Viewing distance:
+                </td>
+                <td colspan="6" ng-switch="customCoc.view.units">
+                    <span ng-switch-default="">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.distance" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].small.multiplier" mb-min-max="customCocCtrl.units[units].small.range"/>
+		 									{{customCocCtrl.units[units].small.unit}}
+	 									</span>
+                    <span ng-switch-when="big">
+			 								<input type="tel" class="input-medium" ng-model="customCoc.view.distance" required="required" mb-validation-messages
+			 									mb-round-number="1" mb-multiplier="customCocCtrl.units[units].big.multiplier" mb-min-max="customCocCtrl.units[units].big.range"/>
+		 									{{customCocCtrl.units[units].big.unit}}
+	 									</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4">
+                    Circle of confusion:
+                </td>
+                <td colspan="6">
+                    {{customCocCtrl.view.value() | infiniteNumber:4}}mm
+                </td>
+            </tr>
+        </tbody>
+        </table>
+        <span class="center">
+		 					<button class="btn-success" ng-click="customCocCtrl.setCustomCoc()" ng-disabled="customCocForm.$invalid">OK</button>
+		 					<button ng-click="dialogCtrl.hideDialog()">Cancel</button>
+	 					</span>
+        </form>
+        </span>
+    </div>
+    </div>
+
+
+    <script type="text/javascript" src="js/modernizr.custom.js?v=20170326"></script>
+    <script type="text/javascript" src="js/jquery-1.8.3.min.js"></script>
+    <script type="text/javascript" src="js/angular.min.js"></script>
+    <script type="text/javascript" src="js/angular-locale_en.js"></script>
+    <script type="text/javascript" src="js/bootstrap-tour-standalone.min.js?v=20170326"></script>
+
+    <script type="text/javascript" src="js/services.js?v=20210320"></script>
+    <script type="text/javascript" src="js/directives.js?v=20180524"></script>
+    <script type="text/javascript" src="js/script.js?v=20210320"></script>
+
+
+    <script type="text/javascript" src="js/cameras.js?v=20200229"></script>
+</body>
+
+</html>
